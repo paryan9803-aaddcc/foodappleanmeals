@@ -779,6 +779,26 @@ def render_history_item(row):
     carb_bar = get_progress_bar_html("Carb", row['total_carbs'], 80, "g", small=True)
     fat_bar = get_progress_bar_html("Fat", row['total_fat'], 25, "g", small=True)
 
+    with st.container():
+        html_str = f"""
+        <div class="history-card">
+            <div style="display: flex; gap: 1rem; align-items: start;">
+                 <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">{row['name']}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">{row['portion_desc']} • {str(row['datetime'])[:16].replace('T', ' ')}</div>
+                        </div>
+                        <div style="text-align: right;">
+                             <div style="background: rgba(102, 126, 234, 0.1); color: var(--accent-blue); padding: 4px 10px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; border: 1px solid rgba(0,243,255,0.2);">
+                                {row['rating']}/10
+                             </div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 0.8rem;">
+                        "{row['reason']}"
+                    </div>
+                    
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; margin-top: 0.5rem;">
                         {cal_bar}
                         {prot_bar}
