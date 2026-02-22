@@ -451,10 +451,12 @@ Example output:
     # Build content parts for the new SDK
     contents = [prompt]
     for img in images:
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
         buf = BytesIO()
-        img.save(buf, format="PNG")
+        img.save(buf, format="JPEG", quality=80, optimize=True)
         buf.seek(0)
-        image_part = types.Part.from_bytes(data=buf.read(), mime_type="image/png")
+        image_part = types.Part.from_bytes(data=buf.read(), mime_type="image/jpeg")
         contents.append(image_part)
 
     try:
@@ -592,14 +594,18 @@ def get_daily_insights(totals: dict, current_time: str) -> str:
         return "Systems optimal. Log your next meal to continue tracking."
 
 def save_uploaded_image(uploaded_file) -> str:
-    """Save uploaded image to local storage and return relative path."""
+    """Save uploaded image to local storage as compressed JPEG and return path."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    ext = uploaded_file.name.split(".")[-1]
-    filename = f"meal_{timestamp}.{ext}"
+    filename = f"meal_{timestamp}.jpg"
     path = os.path.join(IMAGES_DIR, filename)
     
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    img = Image.open(uploaded_file)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    img = resize_image(img, max_dimension=1024)
+    img.save(path, format="JPEG", quality=80, optimize=True)
+    
     return path
 
 def save_meal(items_data: list, image_path: str = None):
@@ -773,49 +779,27 @@ def render_history_item(row):
     carb_bar = get_progress_bar_html("Carb", row['total_carbs'], 80, "g", small=True)
     fat_bar = get_progress_bar_html("Fat", row['total_fat'], 25, "g", small=True)
 
-    with st.container():
-        col_main, col_btn = st.columns([11, 1])
-        with col_main:
-            html_str = f"""
-            <div class="history-card">
-                <div style="display: flex; gap: 1rem; align-items: start;">
-                     <div style="flex: 1;">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div>
-                                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem;">{row['name']}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">{row['portion_desc']} • {str(row['datetime'])[:16].replace('T', ' ')}</div>
-                            </div>
-                            <div style="text-align: right;">
-                                 <div style="background: rgba(102, 126, 234, 0.1); color: var(--accent-blue); padding: 4px 10px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; border: 1px solid rgba(0,243,255,0.2);">
-                                    {row['rating']}/10
-                                 </div>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; margin-bottom: 0.8rem;">
-                            "{row['reason']}"
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem;">
-                            {cal_bar}
-                            {prot_bar}
-                            {carb_bar}
-                            {fat_bar}
-                        </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; margin-top: 0.5rem;">
+                        {cal_bar}
+                        {prot_bar}
+                        {carb_bar}
+                        {fat_bar}
                     </div>
                 </div>
             </div>
-            """
-            clean_html = re.sub(r"^[ \t]+", "", html_str, flags=re.MULTILINE)
-            st.markdown(clean_html, unsafe_allow_html=True)
-            
+        </div>
+        """
+        clean_html = re.sub(r"^[ \t]+", "", html_str, flags=re.MULTILINE)
+        st.markdown(clean_html, unsafe_allow_html=True)
+        
+        # Action row (Expander + Delete) stacked nicely
+        col_exp, col_del = st.columns([4, 1])
+        with col_exp:
             if row['image_path'] and os.path.exists(row['image_path']):
                  with st.expander("View Meal Photo"):
-                    st.image(row['image_path'], width=300)
-                    
-        with col_btn:
-            st.write("")
-            st.write("")
-            if st.button("🗑️", key=f"del_{row['datetime']}", help="Delete Meal"):
+                    st.image(row['image_path'], use_container_width=True)
+        with col_del:
+            if st.button("🗑️ Delete", key=f"del_{row['datetime']}", use_container_width=True):
                 delete_meal(row['datetime'])
                 st.rerun()
 
